@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Deck, Card } from './deck';
 import './App.css';
 
@@ -30,63 +30,59 @@ const CardComponent: React.FC<{ card: Card }> = ({ card }) => {
 };
 
 const BlackjackGame = () => {
-  const [gameDeck, setgameDeck] = useState<Deck>(new Deck());
-  const [playerHand, setPlayerHand] = useState<Card[]>([]);
+  const [gameDeck, setGameDeck] = useState<Deck>(new Deck());
+  const [playerHands, setPlayerHands] = useState<Card[][]>([]);
   const [dealerHand, setDealerHand] = useState<Card[]>([]);
-  const [playerTurn, setplayerTurn] = useState<boolean>(false);
-  const [playerHandValue, setplayerHandValue] = useState(0);
-  const [dealerHandValue, setdealerHandValue] = useState(0);
+  const [playerTurn, setPlayerTurn] = useState<boolean>(false);
+  const [winner, setWinner] = useState<string[]>([]);
+  const [currentHandIndex, setCurrentHandIndex] = useState(0);
+
+  const newGame = () => {
+    const newDeck = new Deck();
+    newDeck.shuffle();
+    setGameDeck(new Deck());
+    setPlayerHands([]);
+    setDealerHand([]);
+    setPlayerTurn(false);
+    setWinner([]);
+    setCurrentHandIndex(0);
+    startGame();
+  };
 
   const startGame = () => {
-    const newDeck = new Deck(); // Create a new deck for the game
-    newDeck.shuffle(); // Ensure the deck is shuffled before dealing
+    const Deck = gameDeck;
 
-    // Alternate dealing cards to player and dealer
-    const playerFirstCard = newDeck.draw();
-    const dealerFirstCard = newDeck.draw();
-    const playerSecondCard = newDeck.draw();
-    const dealerSecondCard = newDeck.draw();
+    const playerFirstCard = Deck.draw();
+    const dealerFirstCard = Deck.draw();
+    const playerSecondCard = Deck.draw();
+    const dealerSecondCard = Deck.draw();
 
-    // Check that all cards were successfully drawn before setting state
     if (
       playerFirstCard &&
       dealerFirstCard &&
       playerSecondCard &&
       dealerSecondCard
     ) {
-      setgameDeck(newDeck);
-      setPlayerHand([playerFirstCard, playerSecondCard]);
+      setGameDeck(Deck);
+      setPlayerHands([[playerFirstCard, playerSecondCard]]);
       setDealerHand([dealerFirstCard, dealerSecondCard]);
-      setplayerTurn(true); // Start with the player's turn
-      // No need to set playerHandValue here, useEffect will handle it
+      setPlayerTurn(true);
+      setWinner([]);
+      setCurrentHandIndex(0);
+      if (calculateHandValue([playerFirstCard, playerSecondCard]) === 21) {
+        setPlayerTurn(false);
+        dealerTurn();
+      } else if (
+        calculateHandValue([dealerFirstCard, dealerSecondCard]) === 21
+      ) {
+        setPlayerTurn(false);
+        determineOutcome();
+      }
     } else {
-      // Handle the case where not enough cards could be drawn, if necessary
       console.error('Error dealing cards');
     }
+    // Connect to AI and give optimal move
   };
-
-  useEffect(() => {
-    const currentHandValue = calculateHandValue(playerHand);
-    setplayerHandValue(currentHandValue);
-    if (currentHandValue > 21) {
-      setplayerTurn(false);
-      console.log('Player Busts');
-    } else if (currentHandValue === 21 && playerHand.length === 2) {
-      console.log('Player Has BlackJack');
-      setplayerTurn(false);
-    }
-  }, [playerHand]);
-
-  useEffect(() => {
-    const currentHandValue = calculateHandValue(dealerHand);
-    setdealerHandValue(currentHandValue);
-    if (currentHandValue > 21) {
-      console.log('Dealer Busts');
-    } else if (currentHandValue === 21 && dealerHand.length === 2) {
-      console.log('Dealer Has BlackJack');
-      setplayerTurn(false);
-    }
-  }, [dealerHand]);
 
   const calculateHandValue = (hand: Card[]): number => {
     let total = 0;
@@ -95,90 +91,177 @@ const BlackjackGame = () => {
     hand.forEach((card) => {
       if (card.rank === 'A') {
         aceCount += 1;
-        total += 11; // Initially count all Aces as 11
+        total += 11;
       } else if (['J', 'Q', 'K'].includes(card.rank)) {
         total += 10;
       } else {
-        total += parseInt(card.rank, 10); // Convert number cards directly to their numeric value
+        total += parseInt(card.rank, 10);
       }
     });
 
-    // Adjust for Aces if total value exceeds 21
     while (total > 21 && aceCount > 0) {
-      total -= 10; // Change one Ace from 11 to 1
+      total -= 10;
       aceCount -= 1;
     }
 
     return total;
   };
 
-  const drawplayerCard = () => {
+  const canSplit = (handIndex: number) => {
+    return (
+      playerHands[handIndex].length === 2 &&
+      playerHands[handIndex][0].rank === playerHands[handIndex][1].rank &&
+      playerHands.length === 1 // To simplify, only allow splitting on the first turn
+    );
+  };
+
+  const splitHand = (handIndex: number) => {
+    if (!canSplit(handIndex)) return;
+
+    const handToSplit = playerHands[handIndex];
+    const newHands: Card[][] = [
+      [handToSplit[0], gameDeck.draw()],
+      [handToSplit[1], gameDeck.draw()],
+    ];
+
+    setPlayerHands(newHands);
+  };
+
+  const drawCard = (handIndex: number) => {
     const newCard = gameDeck.draw();
     if (newCard) {
-      setPlayerHand((prevHand) => [...prevHand, newCard]);
+      const newHands = [...playerHands];
+      newHands[handIndex] = [...newHands[handIndex], newCard];
+      setPlayerHands(newHands);
+
+      if (
+        calculateHandValue(newHands[handIndex]) >= 21 ||
+        newHands[handIndex].length >= 5
+      ) {
+        if (handIndex + 1 < playerHands.length) {
+          setCurrentHandIndex(handIndex + 1);
+          // Connect to AI and give optimal move
+        } else {
+          setPlayerTurn(false);
+        }
+      }
     }
   };
 
-  const stand = () => {
-    setplayerTurn(false); // Player ends their turn by standing
+  const stand = (handIndex: number) => {
+    if (handIndex + 1 < playerHands.length) {
+      setCurrentHandIndex(handIndex + 1);
+    } else {
+      setPlayerTurn(false); // End the player's turn after the last hand is stood
+      dealerTurn();
+    }
+  };
 
-    // Function to let the dealer draw cards until their hand value is 17 or more
-    const dealerDraws = () => {
-      let dealerHandValue = calculateHandValue(dealerHand);
-      while (dealerHandValue <= 17) {
-        const newCard = gameDeck.draw();
-        if (newCard) {
-          setDealerHand((prevHand) => [...prevHand, newCard]);
-          dealerHandValue = calculateHandValue([...dealerHand, newCard]);
-        } else {
-          // Handle the case where the deck is empty, if necessary
-          console.error('Deck is empty, no more cards to draw');
-          break;
-        }
+  const DoubleDown = (handIndex: number) => {
+    drawCard(handIndex);
+    stand(handIndex);
+  };
+
+  const dealerTurn = () => {
+    let dealerHandValue = calculateHandValue(dealerHand);
+    while (dealerHandValue < 17) {
+      const newCard = gameDeck.draw();
+      if (!newCard) {
+        console.error('Deck is empty, no more cards to draw');
+        break;
       }
-    };
+      setDealerHand((prevHand) => [...prevHand, newCard]);
+      dealerHandValue = calculateHandValue([...dealerHand, newCard]);
+    }
+    determineOutcome(); // After the dealer's turn, determine the game's outcome
+  };
 
-    dealerDraws(); // Call the function to let the dealer draw cards
+  const determineOutcome = () => {
+    const dealerHandValue = calculateHandValue(dealerHand);
+    const outcomes = playerHands.map((playerHand) => {
+      const playerHandValue = calculateHandValue(playerHand);
+      if (playerHandValue > 21) {
+        return 'Loss - Player Busts';
+      } else if (dealerHandValue > 21) {
+        return 'Win - Dealer Busts';
+      } else if (playerHandValue > dealerHandValue) {
+        return 'Win';
+      } else if (playerHandValue < dealerHandValue) {
+        return 'Loss';
+      } else {
+        return 'Draw';
+      }
+    });
+    setWinner(outcomes);
   };
 
   return (
     <>
-      <div>
-        <h2>Blackjack Game</h2>
-        <button onClick={startGame}>Start Game</button>
-        <br /> Dealer Hand <br />
-        <div className='hand dealer-hand'>
-          {dealerHand.map((card, index) => (
-            <CardComponent key={index} card={card} />
-          ))}
-        </div>
-        <div key={dealerHand.length}> DealerHand Value {dealerHandValue}</div>
-        <div className='hand player-hand'>
-          Player Hand <br />
-          {playerHand.map((card, index) => (
-            <CardComponent key={index} card={card} />
-          ))}
-          <br />
-          <div key={playerHand.length}> PlayerHand Value {playerHandValue}</div>
-        </div>
-      </div>
-      <div>
-        <>
-          {playerTurn ? (
-            // When playerTurn is true, show Hit and Stand buttons
+      <h2>Blackjack Game</h2>
+      <button onClick={newGame}>Start Game</button>
+
+      {dealerHand.length > 0 && (
+        <div>
+          <h3>Dealer Hand</h3>
+          {dealerHand.length > 0 && (
             <>
-              <button onClick={drawplayerCard}>Hit</button>
-              <button onClick={stand}>Stand</button>
+              <CardComponent card={dealerHand[0]} />
+              {playerTurn && dealerHand.length > 1 ? (
+                <div className='card back'>?</div>
+              ) : (
+                dealerHand
+                  .slice(1)
+                  .map((card, index) => (
+                    <CardComponent key={index} card={card} />
+                  ))
+              )}
             </>
-          ) : (
-            // When playerTurn is false, show different elements
-            // For example, show a message or actions for the dealer's turn
-            <div>
-              <p>Waiting for dealer...</p>
-            </div>
           )}
-        </>
+          <div>
+            Dealer Hand Value:
+            {playerTurn
+              ? calculateHandValue([dealerHand[0]])
+              : calculateHandValue(dealerHand)}
+          </div>
+        </div>
+      )}
+
+      <div className='hands-container'>
+        {playerHands.map((hand, index) => (
+          <div className='hand' key={index}>
+            <h3>Player Hand {index + 1}</h3>
+            {hand.map((card, cardIndex) => (
+              <CardComponent key={cardIndex} card={card} />
+            ))}
+            <div>Hand Value: {calculateHandValue(hand)}</div>
+            {currentHandIndex === index && playerTurn && (
+              <>
+                <button onClick={() => drawCard(index)}>Hit</button>
+                <button onClick={() => stand(index)}>Stand</button>
+                {canSplit(index) && (
+                  <button onClick={() => splitHand(index)}>Split</button>
+                )}
+                {hand.length === 2 && (
+                  <button onClick={() => DoubleDown(index)}>Double Down</button>
+                )}
+              </>
+            )}
+          </div>
+        ))}
       </div>
+
+      {!playerTurn && (
+        <div>
+          {winner.map((result, index) => (
+            <>
+              <p key={index}>
+                Hand {index + 1}: {result}
+              </p>
+              <button onClick={startGame}>Play Again</button>
+            </>
+          ))}
+        </div>
+      )}
     </>
   );
 };

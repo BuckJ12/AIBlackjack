@@ -1,31 +1,49 @@
 #root {
-	max-width: 1280px;
-	margin: 0 auto;
-	padding: 2rem;
-	text-align: center;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
 }
 
 .card {
-	display: inline-block;
-	margin: 5px;
-	padding: 10px;
-	border: 1px solid #000;
-	border-radius: 5px;
-	width: 60px;
-	text-align: center;
-	color: #000;
-	background-color: #fff;
+  display: inline-block;
+  margin: 5px;
+  padding: 10px;
+  border: 1px solid #000;
+  border-radius: 5px;
+  width: 60px;
+  text-align: center;
+  color: #000;
+  background-color: #fff;
+  height: 80px;
 }
 
 .card .card-value {
-	font-size: 16px;
+  font-size: 25px;
+}
+
+.card .back {
+  font-size: 25px;
 }
 
 .hearts,
 .diamonds {
-	color: red;
+  color: red;
 }
 
 .hand {
-	margin: 20px 0;
+  margin: 20px 0;
+}
+
+.hands-container {
+  display: flex;
+  justify-content: center; /* This centers the hands horizontally */
+  gap: 20px; /* Adjusts space between the hands */
+}
+
+.hand {
+  /* Style each hand if needed, for example: */
+  border: 1px solid #ffffff;
+  padding: 10px;
+  margin-bottom: 20px; /* or any other styling you wish */
 }
