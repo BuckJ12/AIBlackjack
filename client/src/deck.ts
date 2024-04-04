@@ -1,5 +1,5 @@
 // Deck.ts
-type Suit = 'Hearts' | 'Diamonds' | 'Clubs' | 'Spades';
+type Suit = 'Hearts' | 'Diamonds' | 'Clubs' | 'Spades' | 'Joker';
 type Rank =
   | '2'
   | '3'
@@ -13,7 +13,8 @@ type Rank =
   | 'J'
   | 'Q'
   | 'K'
-  | 'A';
+  | 'A'
+  | '?';
 
 export interface Card {
   suit: Suit;
@@ -44,14 +45,14 @@ export class Deck {
       'K',
       'A',
     ];
-    for (let i = 0; i < 1; i++) {
-      for (const suit of suits) {
-        for (const rank of ranks) {
+    for (let i = 0; i < 8; i++) {
+      for (const rank of ranks) {
+        for (const suit of suits) {
           this.cards.push({ suit, rank });
         }
       }
     }
-    this.shuffle();
+    //this.shuffle();
   }
 
   shuffle() {
@@ -63,8 +64,12 @@ export class Deck {
 
   draw(): Card {
     if (this.cards.length === 0) {
-      this.initializeDeck(); // Implement this to reset the deck
+      this.initializeDeck();
     }
     return this.cards.shift()!;
+  }
+
+  length(): number {
+    return this.cards.length;
   }
 }

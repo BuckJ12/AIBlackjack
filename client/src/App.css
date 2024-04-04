@@ -6,7 +6,7 @@
 }
 
 .card {
-  display: inline-block;
+  display: inline-flex;
   margin: 5px;
   padding: 10px;
   border: 1px solid #000;
@@ -16,13 +16,16 @@
   color: #000;
   background-color: #fff;
   height: 80px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
+/*   Center horizontally */
+/*   Center vertically */
+
+/*  */
 
 .card .card-value {
-  font-size: 25px;
-}
-
-.card .back {
   font-size: 25px;
 }
 
@@ -46,4 +49,20 @@
   border: 1px solid #ffffff;
   padding: 10px;
   margin-bottom: 20px; /* or any other styling you wish */
+}
+
+.rules-area {
+  flex: 1; /* Adjusts the width of the rules area; you can tweak this value */
+  padding-left: 20px; /* Adds some padding for aesthetics */
+  border-left: 2px solid #ccc; /* Optional: adds a visual separation between the game and the rules */
+}
+
+.blackjack-game-container {
+  display: flex;
+  justify-content: space-between;
+}
+
+.game-area {
+  flex: 3; /* Adjusts the width of the game area; you can tweak this value */
+  padding-right: 20px; /* Adds some space between the game area and the rules */
 }
