@@ -52,7 +52,7 @@ export class Deck {
         }
       }
     }
-    //this.shuffle();
+    this.shuffle();
   }
 
   shuffle() {
