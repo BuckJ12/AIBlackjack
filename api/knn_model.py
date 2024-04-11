@@ -2,6 +2,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
+from pred_methods import knnPrediction, standardize_inputs, standardize_input
+
 
 bj = pd.read_csv('bj_dataset.csv')
 

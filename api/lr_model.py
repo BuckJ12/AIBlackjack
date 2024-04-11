@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
+from pred_methods import lrPrediction, standardize_inputs, standardize_input
 
 
 bj = pd.read_csv('bj_dataset.csv')
