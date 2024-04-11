@@ -72,4 +72,14 @@ export class Deck {
   length(): number {
     return this.cards.length;
   }
+
+  static value(card: Card): number {
+    if (card.rank === 'A') {
+      return 11;
+    } else if (card.rank === 'K' || card.rank === 'Q' || card.rank === 'J') {
+      return 10;
+    } else {
+      return parseInt(card.rank);
+    }
+  }
 }

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Deck, Card } from './deck';
 import './App.css';
+import Bet from './components/Bet';
+import Rulesbox from './components/Rulesbox';
+import { motion } from 'framer-motion';
 
 const backCard: Card = {
   suit: 'Joker',
@@ -24,15 +27,27 @@ const cardSuitToSymbol = (suit: string): string => {
   }
 };
 
-const CardComponent: React.FC<{ card: Card }> = ({ card }) => {
+const CardComponent: React.FC<{ card: Card; index: number }> = ({
+  card,
+  index,
+}) => {
   const suitSymbol = cardSuitToSymbol(card.suit);
   const cardClass = `card ${card.suit.toLowerCase()}`;
+
+  // Calculate a delay based on the card index
+  const delay = index * 0.6; // Increase the multiplier for greater delay between cards
+
   return (
-    <div className={cardClass}>
+    <motion.div
+      className={cardClass}
+      initial={{ opacity: 0, y: 50 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: delay }} // Adjust duration to make it slower
+    >
       <div className='card-value'>
         {card.rank} {suitSymbol}
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -44,7 +59,7 @@ const BlackjackGame = () => {
   const [winner, setWinner] = useState<string[]>([]);
   const [currentHandIndex, setCurrentHandIndex] = useState(0);
   const [money, setMoney] = useState(1000);
-  const [nextBet, setNextBet] = useState<number>(-1);
+  const [nextBet, setNextBet] = useState<number>(0);
   const [bets, setBets] = useState<number[]>([]);
 
   const newGame = () => {
@@ -57,7 +72,7 @@ const BlackjackGame = () => {
     setWinner([]);
     setCurrentHandIndex(0);
     setMoney(1000);
-    startHand();
+    startHand([nextBet]);
   };
 
   const placeBet = (bet: number) => {
@@ -82,10 +97,10 @@ const BlackjackGame = () => {
     // Subtract the bet from the player's money and start the game
     setBets([bet]);
     setMoney(money - bet);
-    startHand();
+    startHand([bet]);
   };
 
-  const startHand = () => {
+  const startHand = (bet: number[] = bets) => {
     const Deck = gameDeck;
 
     const playerFirstCard = Deck.draw();
@@ -100,21 +115,22 @@ const BlackjackGame = () => {
       dealerSecondCard
     ) {
       setGameDeck(Deck);
+      setWinner([]);
+      setCurrentHandIndex(0);
       setPlayerHands([[playerFirstCard, playerSecondCard]]);
       setDealerHand([dealerFirstCard, dealerSecondCard]);
       setPlayerTurn(true);
-      setWinner([]);
-      setCurrentHandIndex(0);
       if (calculateHandValue([playerFirstCard, playerSecondCard]) === 21) {
         setPlayerTurn(false);
-        dealerTurn();
+        dealerTurn([[playerFirstCard, playerSecondCard]]);
       } else if (
         calculateHandValue([dealerFirstCard, dealerSecondCard]) === 21
       ) {
         setPlayerTurn(false);
         determineOutcome(
           [dealerFirstCard, dealerSecondCard],
-          [[playerFirstCard, playerSecondCard]]
+          [[playerFirstCard, playerSecondCard]],
+          bet
         );
       }
     } else {
@@ -149,7 +165,8 @@ const BlackjackGame = () => {
   const canSplit = (handIndex: number) => {
     return (
       playerHands[handIndex].length === 2 &&
-      playerHands[handIndex][0].rank === playerHands[handIndex][1].rank &&
+      Deck.value(playerHands[handIndex][0]) ===
+        Deck.value(playerHands[handIndex][1]) &&
       playerHands.length === 1 &&
       bets[handIndex] * 2 <= money
     );
@@ -186,23 +203,28 @@ const BlackjackGame = () => {
         if (handIndex + 1 < playerHands.length) {
           setCurrentHandIndex(handIndex + 1);
           // Connect to AI and give optimal move
+        } else if (calculateHandValue(newHands[handIndex]) > 21) {
+          setPlayerTurn(false);
+          determineOutcome(dealerHand, newHands);
         } else if (newHands[handIndex].length >= 5) {
           setPlayerTurn(false);
-          dealerTurn();
+          dealerTurn(newHands);
         } else {
           setPlayerTurn(false);
         }
       }
+      return newHands;
     }
+    return playerHands;
   };
 
-  const stand = (handIndex: number) => {
+  const stand = (handIndex: number, phand: Card[][] = playerHands) => {
     if (handIndex + 1 < playerHands.length) {
       setCurrentHandIndex(handIndex + 1);
     } else {
       setPlayerTurn(false); // End the player's turn after the last hand is stood
-      console.log('Player stands');
-      dealerTurn();
+
+      dealerTurn(phand); // Start the dealer's turn
     }
   };
 
@@ -213,69 +235,99 @@ const BlackjackGame = () => {
   };
 
   const DoubleDown = (handIndex: number) => {
-    drawCard(handIndex);
+    const nHands = drawCard(handIndex);
     setMoney(money - bets[currentHandIndex]);
     setBets((prevBets) => {
       const newBets = [...prevBets];
       newBets[currentHandIndex] = newBets[currentHandIndex] * 2;
       return newBets;
     });
-    stand(handIndex);
+    stand(handIndex, nHands);
   };
 
-  const dealerTurn = () => {
+  const dealerTurn = (phands: Card[][] = playerHands) => {
     const tempDealerHand = [...dealerHand]; // Make a temporary copy of the dealer's hand
     let dealerHandValue = calculateHandValue(tempDealerHand);
 
-    while (dealerHandValue < 17) {
-      const newCard = gameDeck.draw();
-      if (!newCard) {
-        console.error('Deck is empty, no more cards to draw');
-        break;
+    // Dealer hits on 16 and stands on 17
+    let busts = 0;
+    for (let i = 0; i < phands.length; i++) {
+      if (calculateHandValue(phands[i]) > 21) {
+        busts += 1;
       }
-      tempDealerHand.push(newCard);
-      dealerHandValue = calculateHandValue(tempDealerHand);
+    }
+
+    if (busts < phands.length) {
+      while (dealerHandValue < 17) {
+        const newCard = gameDeck.draw();
+        if (!newCard) {
+          console.error('Deck is empty, no more cards to draw');
+          break;
+        }
+        tempDealerHand.push(newCard);
+        dealerHandValue = calculateHandValue(tempDealerHand);
+      }
     }
 
     // Now update the state once after the dealer's turn is complete
     setDealerHand(tempDealerHand);
 
     // And then determine the outcome
-    determineOutcome(tempDealerHand, playerHands);
+    determineOutcome(tempDealerHand, phands);
   };
 
-  const determineOutcome = (dealerHand: Card[], playerHands: Card[][]) => {
+  const determineOutcome = (
+    dealerHand: Card[],
+    playerHands: Card[][],
+    pbets: number[] = bets
+  ) => {
     const dealerHandValue = calculateHandValue(dealerHand);
     const outcomes = playerHands.map((playerHand, index) => {
       const playerHandValue = calculateHandValue(playerHand);
-      console.log(playerHandValue, dealerHandValue);
+
+      console.log(
+        'Player Hand:',
+        index,
+        'Player Hand Value:',
+        playerHandValue,
+        'Dealer Hand Value:',
+        dealerHandValue
+      );
+
       if (
         playerHandValue === 21 &&
         playerHand.length === 2 &&
         dealerHandValue !== 21
       ) {
-        setMoney(money + bets[index] * 2.5);
-        return 'Blackjack';
+        setMoney(money + pbets[index] * 2.5);
+        return (
+          'Blackjack Payout ' +
+          pbets[index] * 2.5 +
+          '\nHands ' +
+          playerHandValue +
+          ' Dealer ' +
+          dealerHandValue
+        );
       } else if (
         dealerHandValue === 21 &&
         dealerHand.length === 2 &&
         playerHandValue !== 21
       ) {
-        return 'Loss - Dealer Blackjack';
+        return 'Loss - Dealer Blackjack: ' + pbets[index];
       }
       if (playerHandValue > 21) {
-        return 'Loss - Player Busts';
+        return 'Loss - Player Busts Bet: ' + pbets[index];
       } else if (dealerHandValue > 21) {
-        setMoney(money + bets[index] * 2);
-        return 'Win - Dealer Busts';
+        setMoney(money + pbets[index] * 2);
+        return 'Win - Dealer Busts Payout ' + pbets[index] * 2;
       } else if (playerHandValue > dealerHandValue) {
-        setMoney(money + bets[index] * 2);
-        return 'Win';
+        setMoney(money + pbets[index] * 2);
+        return 'Win Payout ' + pbets[index] * 2;
       } else if (playerHandValue < dealerHandValue) {
-        return 'Loss';
+        return 'Loss Bet: ' + pbets[index];
       } else {
-        setMoney(money + bets[index]);
-        return 'Draw';
+        setMoney(money + pbets[index]);
+        return 'Draw - Return Bet: ' + pbets[index];
       }
     });
     setWinner(outcomes);
@@ -284,12 +336,22 @@ const BlackjackGame = () => {
   return (
     <>
       <h2>Blackjack Game</h2>
+
+      <Rulesbox />
+
       {gameDeck.length() < 10 ? (
         // Game Over Screen
         <>
           <h3>Game Over: Out of Cards</h3>
           <div>SCORE: {money}</div>
-          <button onClick={newGame}>New Game</button>
+          <Bet
+            nextBet={nextBet}
+            setNextBet={setNextBet}
+            playerTurn={playerTurn}
+            money={money}
+            placeBet={placeBet}
+            newGame={newGame}
+          />
         </>
       ) : (
         <>
@@ -299,30 +361,22 @@ const BlackjackGame = () => {
       )}
       {/* Game Screen*/}
       <>
-        {nextBet == -1 && (
-          <>
-            <h3>Rules:</h3>
-            <ul>
-              <li>Dealer hits on 16 and stands on 17</li>
-              <li>Blackjack pays 2.5x your bet</li>
-              <li>Win pays 2x your bet</li>
-              <li>Draw returns your bet</li>
-            </ul>
-          </>
-        )}
-
         {dealerHand.length > 0 && (
           <div>
             <h3>Dealer Hand</h3>
             <>
-              <CardComponent card={dealerHand[0]} />
+              <CardComponent
+                card={dealerHand[0]}
+                index={0}
+                key={`${dealerHand[0].rank}-${dealerHand[0].suit}-${dealerHand.length}`}
+              />
               {playerTurn && dealerHand.length > 1 ? (
-                <CardComponent card={backCard} />
+                <CardComponent card={backCard} index={1} />
               ) : (
                 dealerHand
                   .slice(1)
                   .map((card, index) => (
-                    <CardComponent key={index} card={card} />
+                    <CardComponent key={index} card={card} index={index} />
                   ))
               )}
             </>
@@ -340,21 +394,17 @@ const BlackjackGame = () => {
             <div className='hand' key={index}>
               <h3>Player Hand {index + 1}</h3>
               {hand.map((card, cardIndex) => (
-                <CardComponent key={cardIndex} card={card} />
+                <CardComponent
+                  key={`${card.rank}-${card.suit}-${cardIndex}-${hand.length}-${index}`}
+                  card={card}
+                  index={cardIndex}
+                />
               ))}
               <div>Hand Value: {calculateHandValue(hand)}</div>
               <div>Bet: {bets[index] || 0}</div>
-              {!playerTurn && (
-                <div>
-                  {winner.map((result, winIndex) => (
-                    <React.Fragment key={winIndex}>
-                      <p>
-                        Hand {winIndex + 1}: {result}
-                      </p>
-                    </React.Fragment>
-                  ))}
-                </div>
-              )}
+              {/* Display the result for each hand here */}
+              {!playerTurn && winner[index] && <p>{winner[index]}</p>}
+              {/* Actions for current hand */}
               {currentHandIndex === index && playerTurn && (
                 <>
                   <button onClick={() => drawCard(index)}>Hit</button>
@@ -373,27 +423,14 @@ const BlackjackGame = () => {
           ))}
         </div>
 
-        {money <= 0 && !playerTurn ? (
-          <div>Game Over. You ran out of money.</div>
-        ) : (
-          <>
-            {!playerTurn && (
-              <div>
-                <input
-                  type='number'
-                  value={nextBet}
-                  onChange={(e) => {
-                    setNextBet(parseInt(e.target.value));
-                  }}
-                  min='0'
-                />
-                <button onClick={() => placeBet(nextBet)}>
-                  Place Next Bet
-                </button>
-              </div>
-            )}
-          </>
-        )}
+        <Bet
+          nextBet={nextBet}
+          setNextBet={setNextBet}
+          playerTurn={playerTurn}
+          money={money}
+          placeBet={placeBet}
+          newGame={newGame}
+        />
       </>
     </>
   );

@@ -66,3 +66,13 @@
   flex: 3; /* Adjusts the width of the game area; you can tweak this value */
   padding-right: 20px; /* Adds some space between the game area and the rules */
 }
+
+.pop-up-box {
+  background-color: #000000e5;
+  text-align: center;
+  position: fixed;
+  z-index: 1000;
+  top: 2%;
+  left: 1%;
+  padding: 1%;
+}
