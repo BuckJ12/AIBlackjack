@@ -1,8 +1,8 @@
-
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
+
 
 bj = pd.read_csv('bj_dataset.csv')
 
@@ -17,6 +17,6 @@ X_train, X_test, y_train, y_test = train_test_split(X,
                                                     test_size=0.2, 
                                                     random_state=101)
 
-LRModel = LogisticRegression()
+LRModel = LogisticRegression(C=1.0, penalty='l1', solver='saga')
 LRModel.fit(X_train, y_train)
 
