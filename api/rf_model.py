@@ -12,9 +12,9 @@ y = bj['move']
 scaler = StandardScaler()
 X = scaler.fit_transform(X)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=101)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=101)
 
-RFModel = RandomForestClassifier(100, random_state=101)
+RFModel = RandomForestClassifier(n_estimators=200, max_features='sqrt', min_samples_leaf=4, min_samples_split=10, random_state=101)
 RFModel.fit(X_train, y_train)
 RFpred = RFModel.predict(X_test)
 
