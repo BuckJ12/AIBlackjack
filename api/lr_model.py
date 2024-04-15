@@ -15,6 +15,6 @@ X = scaler.fit_transform(X)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=101)
 
-LRModel = LogisticRegression(C=1.0, penalty='l1', solver='saga')
+LRModel = LogisticRegression(C=0.01, penalty='l1', solver='saga', class_weight=None)
 LRModel.fit(X_train, y_train)
 
