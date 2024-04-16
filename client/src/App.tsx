@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Deck, Card } from './deck';
 import './App.css';
 import Bet from './components/Bet';
@@ -27,22 +27,16 @@ const cardSuitToSymbol = (suit: string): string => {
   }
 };
 
-const CardComponent: React.FC<{ card: Card; index: number }> = ({
-  card,
-  index,
-}) => {
+const CardComponent: React.FC<{ card: Card }> = ({ card }) => {
   const suitSymbol = cardSuitToSymbol(card.suit);
   const cardClass = `card ${card.suit.toLowerCase()}`;
-
-  // Calculate a delay based on the card index
-  const delay = index * 0.6; // Increase the multiplier for greater delay between cards
 
   return (
     <motion.div
       className={cardClass}
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: delay }} // Adjust duration to make it slower
+      transition={{ duration: 0.5 }} // duration of the animation
     >
       <div className='card-value'>
         {card.rank} {suitSymbol}
@@ -61,6 +55,8 @@ const BlackjackGame = () => {
   const [money, setMoney] = useState(1000);
   const [nextBet, setNextBet] = useState<number>(0);
   const [bets, setBets] = useState<number[]>([]);
+  const [runCount, setRunCount] = useState(0);
+  const [AI, setAI] = useState('');
 
   const newGame = () => {
     const newDeck = new Deck();
@@ -136,7 +132,6 @@ const BlackjackGame = () => {
     } else {
       console.error('Error dealing cards');
     }
-    // Connect to AI and give optimal move
   };
 
   const calculateHandValue = (hand: Card[]): number => {
@@ -196,6 +191,25 @@ const BlackjackGame = () => {
       newHands[handIndex] = [...newHands[handIndex], newCard];
       setPlayerHands(newHands);
 
+      // Update Run Count Variable
+      if (
+        newCard.rank === '10' ||
+        newCard.rank === 'J' ||
+        newCard.rank === 'Q' ||
+        newCard.rank === 'K' ||
+        newCard.rank === 'A'
+      ) {
+        setRunCount(runCount - 1);
+      } else if (
+        newCard.rank === '2' ||
+        newCard.rank === '3' ||
+        newCard.rank === '4' ||
+        newCard.rank === '5' ||
+        newCard.rank === '6'
+      ) {
+        setRunCount(runCount + 1);
+      }
+
       if (
         calculateHandValue(newHands[handIndex]) >= 21 ||
         newHands[handIndex].length >= 5
@@ -222,9 +236,9 @@ const BlackjackGame = () => {
     if (handIndex + 1 < playerHands.length) {
       setCurrentHandIndex(handIndex + 1);
     } else {
-      setPlayerTurn(false); // End the player's turn after the last hand is stood
+      setPlayerTurn(false);
 
-      dealerTurn(phand); // Start the dealer's turn
+      dealerTurn(phand);
     }
   };
 
@@ -245,7 +259,7 @@ const BlackjackGame = () => {
     stand(handIndex, nHands);
   };
 
-  const dealerTurn = (phands: Card[][] = playerHands) => {
+  const dealerTurn = async (phands: Card[][] = playerHands) => {
     const tempDealerHand = [...dealerHand]; // Make a temporary copy of the dealer's hand
     let dealerHandValue = calculateHandValue(tempDealerHand);
 
@@ -256,7 +270,7 @@ const BlackjackGame = () => {
         busts += 1;
       }
     }
-
+    await new Promise((resolve) => setTimeout(resolve, 500));
     if (busts < phands.length) {
       while (dealerHandValue < 17) {
         const newCard = gameDeck.draw();
@@ -265,7 +279,10 @@ const BlackjackGame = () => {
           break;
         }
         tempDealerHand.push(newCard);
+        setDealerHand(tempDealerHand);
         dealerHandValue = calculateHandValue(tempDealerHand);
+        // Wait for a second before drawing the next card
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
 
@@ -333,9 +350,82 @@ const BlackjackGame = () => {
     setWinner(outcomes);
   };
 
+  useEffect(() => {
+    fetch('http://localhost:5000/api/test')
+      .then((response) => response.json())
+      .then((data) => setAI(data.message))
+      .catch((err) => console.error('Error fetching data: ', err));
+  }, []);
+
+  // ORDER of PREDICTION METHOD
+  //cards_remaining, dealer_up, true_count, initial_sum, double
+
+  useEffect(() => {
+    const sendData = async () => {
+      if (dealerHand.length > 0 && playerHands.length > currentHandIndex) {
+        const cardsRemaining = gameDeck.length();
+        const dealerUpCard = dealerHand[0];
+        let dealerUpValue;
+
+        // Convert card ranks to numeric values
+        if (['J', 'Q', 'K'].includes(dealerUpCard.rank)) {
+          dealerUpValue = 10;
+        } else if (dealerUpCard.rank === 'A') {
+          dealerUpValue = 11;
+        } else {
+          dealerUpValue = parseInt(dealerUpCard.rank, 10);
+        }
+
+        const trueCount = runCount / (cardsRemaining / 52); // Assuming 52 cards per deck in the calculation
+        const currentHand = playerHands[currentHandIndex];
+        const initialSum = calculateHandValue(currentHand);
+
+        // Determine if the current hand can be split (two cards of the same rank)
+        const canSplit =
+          currentHand.length === 2 &&
+          currentHand[0].rank === currentHand[1].rank &&
+          bets[currentHandIndex] * 2 <= money &&
+          playerHands.length === 1;
+
+        // Preparing data for the request
+        const requestData = {
+          cards_remaining: cardsRemaining,
+          dealer_up: dealerUpValue,
+          true_count: trueCount,
+          initial_sum: initialSum,
+          double: canSplit, // Indicates possibility of splitting the hand
+        };
+
+        try {
+          const response = await fetch('http://localhost:5000/api/predict', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setAI(data.prediction);
+          } else {
+            console.error('Error fetching data:', response.statusText);
+          }
+        } catch (err) {
+          console.error('Error fetching data:', err);
+        }
+      }
+    };
+
+    sendData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerHands, currentHandIndex]);
+
   return (
     <>
       <h2>Blackjack Game</h2>
+      <h3>AI Suggestion {AI}</h3>
+      <h4> True Count: {(runCount / (gameDeck.length() / 52)).toFixed(4)}</h4>
 
       <Rulesbox />
 
@@ -367,16 +457,15 @@ const BlackjackGame = () => {
             <>
               <CardComponent
                 card={dealerHand[0]}
-                index={0}
                 key={`${dealerHand[0].rank}-${dealerHand[0].suit}-${dealerHand.length}`}
               />
               {playerTurn && dealerHand.length > 1 ? (
-                <CardComponent card={backCard} index={1} />
+                <CardComponent card={backCard} />
               ) : (
                 dealerHand
                   .slice(1)
                   .map((card, index) => (
-                    <CardComponent key={index} card={card} index={index} />
+                    <CardComponent key={index} card={card} />
                   ))
               )}
             </>
@@ -397,7 +486,6 @@ const BlackjackGame = () => {
                 <CardComponent
                   key={`${card.rank}-${card.suit}-${cardIndex}-${hand.length}-${index}`}
                   card={card}
-                  index={cardIndex}
                 />
               ))}
               <div>Hand Value: {calculateHandValue(hand)}</div>
