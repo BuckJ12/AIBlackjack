@@ -13,7 +13,7 @@ function Rulesbox() {
         <br />
         You can double down on any two cards
         <br />
-        You can split your hand once
+        You can split your hand only once
         <br />
         True count is used for betting
         <br />({'>'}4 = 10%, 5-8 = 20%, 9-12 = 30%,

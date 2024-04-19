@@ -24,6 +24,7 @@ def standardize_inputs(inputs, scaler):
 
 def rfPrediction(cards_remaining, dealer_up, true_count, initial_sum, double, rf, scaler):
     inputs = (cards_remaining, dealer_up, true_count, initial_sum, double)
+    print(inputs)
     standardized_inputs = standardize_inputs(inputs, scaler)
     try:
         move = rf.predict([standardized_inputs])[0]

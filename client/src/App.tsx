@@ -302,29 +302,13 @@ const BlackjackGame = () => {
     const outcomes = playerHands.map((playerHand, index) => {
       const playerHandValue = calculateHandValue(playerHand);
 
-      console.log(
-        'Player Hand:',
-        index,
-        'Player Hand Value:',
-        playerHandValue,
-        'Dealer Hand Value:',
-        dealerHandValue
-      );
-
       if (
         playerHandValue === 21 &&
         playerHand.length === 2 &&
         dealerHandValue !== 21
       ) {
         setMoney(money + pbets[index] * 2.5);
-        return (
-          'Blackjack Payout ' +
-          pbets[index] * 2.5 +
-          '\nHands ' +
-          playerHandValue +
-          ' Dealer ' +
-          dealerHandValue
-        );
+        return 'Blackjack Payout ' + pbets[index] * 2.5;
       } else if (
         dealerHandValue === 21 &&
         dealerHand.length === 2 &&
@@ -407,7 +391,7 @@ const BlackjackGame = () => {
 
           if (response.ok) {
             const data = await response.json();
-            setAI(data.prediction);
+            setAI(data.prediction + ' on ' + data.message);
           } else {
             console.error('Error fetching data:', response.statusText);
           }

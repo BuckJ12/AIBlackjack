@@ -31,7 +31,7 @@ def predict():
         prediction_result = pred_methods.rfPrediction(
             cards_remaining, dealer_up, true_count, initial_sum, double, rf_model, rf_scaler
         )
-        return jsonify({'prediction': prediction_result})
+        return jsonify({'prediction': prediction_result, 'message': initial_sum})
     except Exception as e:
         return jsonify({'error': 'Failed to make a prediction', 'message': str(e)}), 500
 
@@ -42,4 +42,4 @@ def get_data():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000)
